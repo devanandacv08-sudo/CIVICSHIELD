@@ -1,3 +1,4 @@
+
 package com.civicshield.auth;
 
 import javax.swing.*;
@@ -38,54 +39,81 @@ public class Login {
 
         loginButton.addActionListener(e -> {
 
-            String email = emailField.getText();
-            String password = new String(passwordField.getPassword());
+            String email = emailField.getText().trim();
+            String password =
+                    new String(passwordField.getPassword());
 
-            String url = "jdbc:mysql://localhost:3306/civicshield_db";
+            String url =
+                    "jdbc:mysql://localhost:3306/civicshield_db";
             String username = "root";
-            String dbPassword = "ramdev@123";
 
-            String sql = "SELECT * FROM users WHERE email = ? AND password = ?";
+            // Read the database password from the environment.
+            String dbPassword =
+                    System.getenv("CIVICSHIELD_DB_PASSWORD");
 
-            try {
+            if (dbPassword == null || dbPassword.isBlank()) {
+                JOptionPane.showMessageDialog(
+                        frame,
+                        "Database password is not configured. " +
+                        "Please set CIVICSHIELD_DB_PASSWORD."
+                );
+                return;
+            }
 
-                Connection connection =
-                        DriverManager.getConnection(url, username, dbPassword);
+            String sql =
+                    "SELECT user_id, name FROM users " +
+                    "WHERE email = ? AND password = ?";
 
-                PreparedStatement statement =
-                        connection.prepareStatement(sql);
+            try (
+                    Connection connection =
+                            DriverManager.getConnection(
+                                    url, username, dbPassword
+                            );
+
+                    PreparedStatement statement =
+                            connection.prepareStatement(sql)
+            ) {
 
                 statement.setString(1, email);
                 statement.setString(2, password);
 
-                ResultSet result = statement.executeQuery();
+                try (ResultSet result = statement.executeQuery()) {
 
-                if (result.next()) {
+                    if (result.next()) {
 
-                    JOptionPane.showMessageDialog(
-                            frame,
-                            "Login Successful!"
-                    );
+                        int userId = result.getInt("user_id");
+                        String name = result.getString("name");
 
-                } else {
+                        JOptionPane.showMessageDialog(
+                                frame,
+                                "Login Successful!"
+                        );
 
-                    JOptionPane.showMessageDialog(
-                            frame,
-                            "Invalid email or password!"
-                    );
+                        frame.dispose();
+                        new UserDashboard(userId, name);
+
+                    } else {
+
+                        JOptionPane.showMessageDialog(
+                                frame,
+                                "Invalid email or password!"
+                        );
+                    }
                 }
-
-                connection.close();
 
             } catch (Exception ex) {
 
                 JOptionPane.showMessageDialog(
                         frame,
-                        "Login Failed: " + ex.getMessage()
+                        "Login failed. Check your database " +
+                        "connection and configuration."
                 );
+
+                ex.printStackTrace();
             }
         });
 
+        frame.setLocationRelativeTo(null);
         frame.setVisible(true);
     }
 }
